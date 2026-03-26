@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ChessFred — Partie en ligne</title>
+<style>
+:root {
+  --bg: #2c1a0e;
+  --surface: #3d2410;
+  --surface2: #4e2f14;
+  --border: #8b5a2b;
+  --gold: #d4a030;
+  --gold-light: #f0c84a;
+  --gold-dim: #9a7040;
+  --light-sq: #f0d090;
+  --dark-sq: #b07838;
+  --text: #f5e6c8;
+  --text-dim: #b8905a;
+  --btn: #5a3418;
+  --btn-border: #9a6a30;
+  --btn-text: #f5dfa0;
+  --sq: 42px;
+  --red: #dd4422;
+  --green: #4a9a5a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: Georgia, serif; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+/* ── SCREENS ── */
+.screen { display: none; flex-direction: column; height: 100dvh; }
+.screen.active { display: flex; }
+
+/* ── LOBBY ── */
+#lobby {
+  align-items: center; justify-content: center; gap: 16px; padding: 24px 20px;
+  background: radial-gradient(ellipse at 30% 20%, rgba(160,90,30,0.3) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 80%, rgba(100,50,10,0.35) 0%, transparent 60%),
+              var(--bg);
+}
+.logo { font-size: 2rem; color: var(--gold-light); font-weight: bold; letter-spacing: 0.1em; text-align: center; }
+.logo span { display: block; font-size: 0.7rem; color: var(--gold-dim); letter-spacing: 0.3em; text-transform: uppercase; margin-top: 2px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; width: 100%; max-width: 340px; }
+.card h3 { font-size: 0.75rem; color: var(--gold-light); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.field label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+select, input[type=text] {
+  background: var(--btn); color: var(--btn-text); border: 1px solid var(--btn-border);
+  padding: 9px 10px; border-radius: 6px; font-size: 0.9rem; width: 100%;
+}
+select:focus, input:focus { outline: none; border-color: var(--gold); }
+.color-row { display: flex; gap: 6px; }
+.color-btn { flex: 1; padding: 9px 4px; text-align: center; background: var(--btn); color: var(--btn-text); border: 1px solid var(--btn-border); border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+.color-btn.active { background: #4a3010; border-color: var(--gold); color: var(--gold-light); }
+.btn { background: linear-gradient(180deg, #7a4820, #3d2008); color: var(--btn-text); border: 1px solid var(--btn-border); padding: 11px 16px; border-radius: 7px; font-size: 0.95rem; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+.btn:active { background: linear-gradient(180deg, #a06030, #5a2e0e); }
+.btn.secondary { background: var(--btn); border-color: var(--btn-border); }
+.btn.danger { border-color: #8b3a1a; color: #ffaa80; }
+.status-line { font-size: 0.78rem; color: var(--gold-dim); font-style: italic; text-align: center; min-height: 1.2em; }
+.status-line.ok { color: #70c080; font-style: normal; font-weight: bold; }
+.status-line.err { color: var(--red); }
+.big-code { font-size: 2rem; font-weight: bold; color: var(--gold-light); text-align: center; letter-spacing: 0.3em; padding: 10px; background: var(--surface2); border: 1px solid var(--gold); border-radius: 8px; cursor: pointer; margin: 6px 0; }
+.code-input { font-size: 1.5rem; text-align: center; letter-spacing: 0.3em; font-weight: bold; }
+.sep { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 0.7rem; }
+.sep::before, .sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── GAME ── */
+#game { background: var(--bg); }
+.game-top { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 4px; flex-shrink: 0; }
+.player-clock { display: flex; align-items: center; gap: 6px; }
+.clock-box { background: var(--surface2); border: 2px solid var(--border); border-radius: 6px; padding: 4px 8px; min-width: 68px; text-align: center; transition: border-color 0.2s, background 0.2s; }
+.clock-box.ticking { border-color: var(--gold); background: #4a2e08; }
+.clock-box.low { border-color: var(--red); animation: pulse 1s infinite; }
+.clock-time { font-size: 1.1rem; font-weight: bold; color: var(--gold-light); letter-spacing: 0.05em; }
+.clock-box.low .clock-time { color: #ff6644; }
+.clock-label { font-size: 0.58rem; color: var(--text-dim); text-transform: uppercase; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 4px rgba(220,60,30,0.3);} 50%{box-shadow:0 0 10px rgba(220,60,30,0.7);} }
+.turn-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--border); }
+.turn-dot.w { background: #f5f0e0; box-shadow: 0 0 5px rgba(245,240,224,0.7); }
+.turn-dot.b { background: #111; border-color: var(--gold); box-shadow: 0 0 5px rgba(255,200,50,0.5); }
+#turn-info { font-size: 0.8rem; color: var(--text-dim); }
+#check-msg { font-size: 0.75rem; color: #ff9955; font-style: italic; }
+
+.board-wrap { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 0; padding: 2px; }
+.board-outer { position: relative; background: linear-gradient(135deg, #5a3418, #3d2410); border: 2px solid #8b5a2b; border-radius: 5px; box-shadow: 0 4px 20px rgba(0,0,0,0.7); padding: 4px 4px 16px 16px; }
+.board { display: grid; grid-template-columns: repeat(8, var(--sq)); grid-template-rows: repeat(8, var(--sq)); }
+.coord-files { position: absolute; bottom: 1px; left: 16px; display: flex; width: calc(8 * var(--sq)); }
+.coord-ranks { position: absolute; left: 1px; top: 4px; display: flex; flex-direction: column; }
+.coord { width: var(--sq); height: 14px; display: flex; align-items: center; justify-content: center; font-size: 0.5rem; color: var(--gold-light); font-weight: bold; user-select: none; }
+.coord-rank { width: 14px; height: var(--sq); display: flex; align-items: center; justify-content: center; font-size: 0.5rem; color: var(--gold-light); font-weight: bold; user-select: none; }
+.square { width: var(--sq); height: var(--sq); display: flex; align-items: center; justify-content: center; position: relative; }
+.sq-l { background: var(--light-sq); }
+.sq-d { background: var(--dark-sq); }
+.sq-sel::after { content:''; position:absolute; inset:0; background:rgba(255,230,60,0.55); pointer-events:none; z-index:3; }
+.sq-chk::after { content:''; position:absolute; inset:0; background:rgba(220,40,40,0.6); pointer-events:none; z-index:3; }
+.sq-from { box-shadow: inset 0 0 0 2px rgba(255,215,40,0.4); }
+.sq-to   { box-shadow: inset 0 0 0 2px rgba(255,215,40,0.78); }
+.square img { width: calc(var(--sq)*0.88); height: calc(var(--sq)*0.88); user-select:none; pointer-events:none; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
+.piece-b { filter: drop-shadow(0 0 2px rgba(255,255,255,0.45)) drop-shadow(0 1px 3px rgba(0,0,0,0.9)); }
+.dot { position:absolute; width:30%; height:30%; border-radius:50%; background:rgba(60,180,60,0.6); pointer-events:none; z-index:2; }
+.dot.cap { width:100%; height:100%; border-radius:0; background:transparent; box-shadow:inset 0 0 0 3px rgba(60,180,60,0.6); }
+
+/* Bottom bar */
+.game-bottom { flex-shrink: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+.chat-area { display: none; flex-direction: column; max-height: 180px; padding: 6px 8px 0; }
+.chat-area.open { display: flex; }
+.chat-msgs { flex: 1; overflow-y: auto; font-size: 0.78rem; display: flex; flex-direction: column; gap: 3px; margin-bottom: 5px; }
+.msg { padding: 3px 7px; border-radius: 5px; max-width: 85%; word-break: break-word; }
+.msg.me { background: #4a2e08; color: var(--gold-light); align-self: flex-end; }
+.msg.them { background: var(--surface2); color: var(--text); align-self: flex-start; }
+.msg.sys { color: var(--text-dim); font-style: italic; align-self: center; font-size: 0.7rem; }
+.chat-input-row { display: flex; gap: 5px; margin-bottom: 6px; }
+.chat-input-row input { flex: 1; background: var(--btn); color: var(--btn-text); border: 1px solid var(--btn-border); padding: 7px 9px; border-radius: 5px; font-size: 0.85rem; }
+.chat-input-row button { padding: 7px 12px; background: var(--btn); color: var(--gold-light); border: 1px solid var(--btn-border); border-radius: 5px; font-size: 0.9rem; cursor: pointer; }
+.quick-msgs { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 6px; }
+.quick-msgs button { font-size: 0.68rem; padding: 4px 7px; background: var(--btn); color: var(--btn-text); border: 1px solid var(--btn-border); border-radius: 4px; cursor: pointer; }
+.action-bar { display: flex; gap: 0; border-top: 1px solid var(--border); }
+.action-btn { flex: 1; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.58rem; color: var(--text-dim); cursor: pointer; background: none; border: none; border-right: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.06em; }
+.action-btn:last-child { border-right: none; }
+.action-btn .ico { font-size: 1.2rem; }
+.action-btn.active { color: var(--gold-light); background: rgba(212,160,48,0.1); }
+
+/* Overlays */
+#promo-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:100; }
+.promo-box { background: var(--surface); border: 2px solid var(--gold); border-radius: 12px; padding: 20px; text-align: center; }
+.promo-box p { color: var(--gold-light); margin-bottom: 12px; font-size: 0.9rem; }
+.promo-box img { width: 54px; height: 54px; margin: 5px; cursor: pointer; }
+#end-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:100; }
+.end-box { background: var(--surface); border: 2px solid var(--gold); border-radius: 12px; padding: 24px; text-align: center; width: 82vw; max-width: 300px; }
+.end-box h2 { color: var(--gold-light); font-size: 1.3rem; margin-bottom: 6px; }
+.end-box p { color: var(--text); margin-bottom: 16px; font-size: 0.9rem; }
+.end-box .btn { margin-top: 6px; }
+</style>
+</head>
+<body>
+
+
+<!-- ═══ LOBBY ═══ -->
+<div class="screen active" id="lobby">
+  <div class="logo">♟ ChessFred<span>Partie en ligne</span></div>
+  <div id="peerjs-ok" style="display:none;background:#0a3018;border:1px solid #4a9a5a;border-radius:8px;padding:8px 14px;max-width:340px;width:100%;font-size:0.78rem;color:#70c080;text-align:center;">
+    ✅ Connexion prête
+  </div>
+  <div id="peerjs-err" style="display:none;background:#5a1a0a;border:1px solid #dd4422;border-radius:8px;padding:12px 14px;max-width:340px;width:100%;font-size:0.82rem;color:#ffaa80;text-align:center;">
+    ❌ Impossible de charger le module réseau.<br>Vérifiez votre connexion internet et rechargez.
+  </div>
+
+  <div class="card">
+    <h3>Créer une partie</h3>
+    <div class="field">
+      <label>Ma couleur</label>
+      <div class="color-row">
+        <div class="color-btn active" id="c-white" onclick="setColor('white')">⬜ Blancs</div>
+        <div class="color-btn" id="c-black" onclick="setColor('black')">⬛ Noirs</div>
+        <div class="color-btn" id="c-rand"  onclick="setColor('rand')">🎲 Aléatoire</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Cadence</label>
+      <select id="cadence">
+        <option value="180+2">3 min + 2 sec (Blitz)</option>
+        <option value="300+0">5 min (Blitz)</option>
+        <option value="600+0" selected>10 min (Rapide)</option>
+        <option value="900+10">15 min + 10 sec</option>
+        <option value="1800+0">30 min</option>
+        <option value="0+0">Sans chrono</option>
+      </select>
+    </div>
+    <button class="btn" onclick="createGame()">➕ Créer la partie</button>
+    <div id="code-zone" style="display:none; margin-top:10px;">
+      <div class="big-code" id="code-display" onclick="copyCode()" title="Appuyer pour copier">----</div>
+      <div style="font-size:0.7rem;color:var(--text-dim);text-align:center;">Appuyez pour copier — envoyez ce code à votre adversaire</div>
+    </div>
+    <div class="status-line" id="create-status" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="sep">ou rejoindre</div>
+
+  <div class="card">
+    <h3>Rejoindre une partie</h3>
+    <div class="field">
+      <label>Code à 4 chiffres</label>
+      <input class="code-input" type="text" id="join-code" maxlength="4" placeholder="0000" oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <button class="btn secondary" onclick="joinGame()">🔗 Rejoindre</button>
+    <div class="status-line" id="join-status" style="margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ═══ GAME ═══ -->
+<div class="screen" id="game">
+  <!-- Top: clocks + turn -->
+  <div class="game-top">
+    <div class="player-clock">
+      <div class="clock-box" id="clk-black">
+        <div class="clock-label">⬛ Noirs</div>
+        <div class="clock-time" id="clk-black-t">—</div>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div style="display:flex;align-items:center;gap:5px;justify-content:center;">
+        <div class="turn-dot w" id="turn-dot"></div>
+        <span id="turn-info">Blancs jouent</span>
+      </div>
+      <div id="check-msg"></div>
+    </div>
+    <div class="player-clock">
+      <div class="clock-box" id="clk-white">
+        <div class="clock-label">⬜ Blancs</div>
+        <div class="clock-time" id="clk-white-t">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Board -->
+  <div class="board-wrap">
+    <div class="board-outer">
+      <div id="coord-ranks" class="coord-ranks"></div>
+      <div id="board" class="board"></div>
+      <div id="coord-files" class="coord-files"></div>
+    </div>
+  </div>
+
+  <!-- Bottom -->
+  <div class="game-bottom">
+    <div class="chat-area" id="chat-area">
+      <div class="chat-msgs" id="chat-msgs"></div>
+      <div class="quick-msgs">
+        <button onclick="quickMsg('👋 Bonne partie !')">👋 Bonne partie !</button>
+        <button onclick="quickMsg('👏 Bien joué !')">👏 Bien joué !</button>
+        <button onclick="quickMsg('🤔 Réfléchis !')">🤔 Réfléchis !</button>
+        <button onclick="quickMsg('🤝 Nulle ?')">🤝 Nulle ?</button>
+        <button onclick="quickMsg('🏳️ J&apos;abandonne')">🏳️ J'abandonne</button>
+      </div>
+      <div class="chat-input-row">
+        <input id="chat-in" type="text" placeholder="Message…" maxlength="100" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button onclick="sendMsg()">↩</button>
+      </div>
+    </div>
+    <div class="action-bar">
+      <button class="action-btn" onclick="doUndo()"><span class="ico">↩</span>Retour</button>
+      <button class="action-btn" onclick="toggleChat()" id="chat-btn"><span class="ico">💬</span>Chat</button>
+      <button class="action-btn" onclick="flipBoard()"><span class="ico">🔄</span>Pivoter</button>
+      <button class="action-btn danger" onclick="confirmLeave()"><span class="ico">✖</span>Quitter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Promo -->
+<div id="promo-overlay">
+  <div class="promo-box">
+    <p>Promotion — choisissez</p>
+    <div id="promo-choices"></div>
+  </div>
+</div>
+<!-- End -->
+<div id="end-overlay">
+  <div class="end-box">
+    <h2 id="end-title"></h2>
+    <p id="end-msg"></p>
+    <button class="btn" onclick="backToLobby()">↩ Retour au lobby</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════ PIECES ══════════════ */
+const PI={
+  P:"https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg",
+  R:"https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg",
+  N:"https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg",
+  B:"https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg",
+  Q:"https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg",
+  K:"https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg",
+  p:"https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg",
+  r:"https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg",
+  n:"https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg",
+  b:"https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg",
+  q:"https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg",
+  k:"https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg"
+};
+const W=p=>p!==""&&p===p.toUpperCase();
+const CL=b=>JSON.parse(JSON.stringify(b));
+function initB(){return[["r","n","b","q","k","b","n","r"],["p","p","p","p","p","p","p","p"],["","","","","","","",""],["","","","","","","",""],["","","","","","","",""],["","","","","","","",""],["P","P","P","P","P","P","P","P"],["R","N","B","Q","K","B","N","R"]];}
+
+/* ══════════════ STATE ══════════════ */
+let board=initB(),turn="white",flipped=false;
+let sel=null,targets=[],lastMv=null,promoTgt=null;
+let hist=[],moveLog=[],moved={K:0,k:0,R0:0,R7:0,r0:0,r7:0};
+let EP=null,_cc=false;
+let myColor=null; // "white"|"black"
+let gameStarted=false;
+
+/* ══════════════ CHESS ENGINE ══════════════ */
+function pathClear(r1,c1,r2,c2){
+  let dr=Math.sign(r2-r1),dc=Math.sign(c2-c1),r=r1+dr,c=c1+dc;
+  while(r!==r2||c!==c2){if(board[r][c])return false;r+=dr;c+=dc;}
+  return true;
+}
+function validMv(r1,c1,r2,c2){
+  let p=board[r1][c1],t=board[r2][c2];
+  if(!p||r2<0||r2>7||c2<0||c2>7)return false;
+  if(t&&W(p)===W(t))return false;
+  let dr=r2-r1,dc=c2-c1;
+  switch(p.toLowerCase()){
+    case"r":return(dr===0||dc===0)&&pathClear(r1,c1,r2,c2);
+    case"b":return Math.abs(dr)===Math.abs(dc)&&pathClear(r1,c1,r2,c2);
+    case"q":return(dr===0||dc===0||Math.abs(dr)===Math.abs(dc))&&pathClear(r1,c1,r2,c2);
+    case"n":return(Math.abs(dr)===2&&Math.abs(dc)===1)||(Math.abs(dr)===1&&Math.abs(dc)===2);
+    case"k":
+      if(Math.abs(dr)<=1&&Math.abs(dc)<=1)return true;
+      if(!_cc){_cc=true;let ok=false;
+        if(p==="K"&&r1===7&&c1===4&&dr===0){if(c2===6&&!moved.K&&!moved.R7&&!board[7][5]&&!board[7][6]&&!atk(7,5,"white")&&!atk(7,6,"white"))ok=true;if(c2===2&&!moved.K&&!moved.R0&&!board[7][1]&&!board[7][2]&&!board[7][3]&&!atk(7,3,"white")&&!atk(7,2,"white"))ok=true;}
+        if(p==="k"&&r1===0&&c1===4&&dr===0){if(c2===6&&!moved.k&&!moved.r7&&!board[0][5]&&!board[0][6]&&!atk(0,5,"black")&&!atk(0,6,"black"))ok=true;if(c2===2&&!moved.k&&!moved.r0&&!board[0][1]&&!board[0][2]&&!board[0][3]&&!atk(0,3,"black")&&!atk(0,2,"black"))ok=true;}
+        _cc=false;if(ok)return true;}
+      return false;
+    case"p":{let d=p==="P"?-1:1;
+      if(dc===0&&!t&&dr===d)return true;
+      if(dc===0&&!t&&dr===2*d&&((p==="P"&&r1===6)||(p==="p"&&r1===1))&&!board[r1+d][c1])return true;
+      if(Math.abs(dc)===1&&dr===d&&(t||(EP&&r2===EP.r&&c2===EP.c)))return true;
+      return false;}
+  }
+}
+function atk(r,c,color){
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){
+    let p=board[i][j];if(!p)continue;
+    if(color==="white"&&!W(p)&&validMv(i,j,r,c))return true;
+    if(color==="black"&&W(p)&&validMv(i,j,r,c))return true;
+  }return false;
+}
+function inCheck(color){
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    if(color==="white"&&board[r][c]==="K")return atk(r,c,"white");
+    if(color==="black"&&board[r][c]==="k")return atk(r,c,"black");
+  }return false;
+}
+function allMoves(color){
+  let moves=[],sv=turn;turn=color;
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    let p=board[r][c];if(!p)continue;
+    if(color==="white"&&!W(p))continue;if(color==="black"&&W(p))continue;
+    for(let r2=0;r2<8;r2++)for(let c2=0;c2<8;c2++)if(validMv(r,c,r2,c2)){
+      let bk=CL(board),ep=EP,mv={...moved};
+      doMove(r,c,r2,c2);if(!inCheck(color))moves.push({r,c,r2,c2});
+      board=bk;EP=ep;moved=mv;
+    }
+  }turn=sv;return moves;
+}
+function legalFor(r,c){return allMoves(turn).filter(m=>m.r===r&&m.c===c).map(m=>({r:m.r2,c:m.c2}));}
+function doMove(r1,c1,r2,c2){
+  let p=board[r1][c1];
+  if(p==="K"&&r1===7&&c1===4){if(c2===6){board[7][5]="R";board[7][7]="";}if(c2===2){board[7][3]="R";board[7][0]="";}}
+  if(p==="k"&&r1===0&&c1===4){if(c2===6){board[0][5]="r";board[0][7]="";}if(c2===2){board[0][3]="r";board[0][0]="";}}
+  if(p.toLowerCase()==="p"&&EP&&r2===EP.r&&c2===EP.c)board[p==="P"?r2+1:r2-1][c2]="";
+  board[r2][c2]=p;board[r1][c1]="";
+  if(p==="K")moved.K=1;if(p==="k")moved.k=1;
+  if(p.toLowerCase()==="r"){if(r1===7&&c1===0)moved.R0=1;if(r1===7&&c1===7)moved.R7=1;if(r1===0&&c1===0)moved.r0=1;if(r1===0&&c1===7)moved.r7=1;}
+  EP=null;if(p.toLowerCase()==="p"&&Math.abs(r2-r1)===2)EP={r:(r1+r2)/2,c:c1};
+}
+const COL=c=>"abcdefgh"[c];
+const AN=(r,c)=>COL(c)+(8-r);
+function mvAN(r1,c1,r2,c2,p,cap,promo){
+  let pl=p.toLowerCase();
+  if(pl==="k"&&Math.abs(c2-c1)===2)return c2>c1?"0-0":"0-0-0";
+  return(pl==="p"?"":p.toUpperCase())+(pl==="p"&&cap?COL(c1):"")+( cap?"x":"")+AN(r2,c2)+(promo?"=?":"");
+}
+
+function tryMove(r1,c1,r2,c2,fromNetwork=false){
+  let p=board[r1][c1];
+  if(!p)return false;
+  if((turn==="white"&&!W(p))||(turn==="black"&&W(p)))return false;
+  if(!fromNetwork&&turn!==myColor)return false;
+  if(!validMv(r1,c1,r2,c2))return false;
+  hist.push({board:CL(board),turn,EP:EP?{...EP}:null,moved:{...moved},log:JSON.parse(JSON.stringify(moveLog)),lastMv:lastMv?{...lastMv}:null});
+  let cap=board[r2][c2];
+  let bk=CL(board),ep=EP;
+  doMove(r1,c1,r2,c2);
+  if(inCheck(turn)){board=bk;EP=ep;hist.pop();return false;}
+  lastMv={r1,c1,r2,c2};
+  let isPromo=(p==="P"&&r2===0)||(p==="p"&&r2===7);
+  let an=mvAN(r1,c1,r2,c2,p,cap,isPromo);
+  if(turn==="white")moveLog.push({w:an,b:""});
+  else if(moveLog.length)moveLog[moveLog.length-1].b=an;
+  if(!fromNetwork)sendMove(r1,c1,r2,c2);
+  if(isPromo){promoTgt={r:r2,c:c2,wh:W(p)};showPromo(W(p),fromNetwork);return true;}
+  if(!clockRunning&&gameStarted)startClock();
+  turn=turn==="white"?"black":"white";
+  sel=null;targets=[];
+  draw();checkEnd();
+  switchClock();
+  return true;
+}
+function showPromo(isW,fromNet){
+  let ov=document.getElementById("promo-overlay"),ch=document.getElementById("promo-choices");
+  ch.innerHTML="";ov.style.display="flex";
+  (isW?["Q","R","B","N"]:["q","r","b","n"]).forEach(q=>{
+    let img=document.createElement("img");img.src=PI[q];
+    img.onclick=()=>{
+      board[promoTgt.r][promoTgt.c]=q;
+      let last=moveLog[moveLog.length-1];
+      if(last){if(last.b===promoTgt.an)last.b=last.b.replace("=?","="+q.toUpperCase());else if(last.w===promoTgt.an)last.w=last.w.replace("=?","="+q.toUpperCase());}
+      ov.style.display="none";
+      if(!fromNet)sendMsg2({type:"promo",q});
+      turn=turn==="white"?"black":"white";sel=null;targets=[];
+      if(!clockRunning&&gameStarted)startClock();
+      draw();checkEnd();switchClock();
+    };ch.appendChild(img);
+  });
+}
+function checkEnd(){
+  let ms=allMoves(turn);
+  if(!ms.length){
+    let chk=inCheck(turn);
+    showEnd(chk?"Échec et mat !":" Pat !", chk?(turn==="white"?"Les Noirs gagnent.":"Les Blancs gagnent."):"Partie nulle — pat.");
+  }
+}
+function showEnd(title,msg){
+  pauseClock();
+  document.getElementById("end-title").innerText=title;
+  document.getElementById("end-msg").innerText=msg;
+  document.getElementById("end-overlay").style.display="flex";
+}
+
+/* ══════════════ DRAW ══════════════ */
+function sqSize(){
+  let w=window.innerWidth-24,h=window.innerHeight-160;
+  return Math.max(30,Math.min(56,Math.floor(Math.min(w,h)/8)));
+}
+function draw(){
+  let sq=sqSize();
+  document.documentElement.style.setProperty("--sq",sq+"px");
+  let b=document.getElementById("board");b.innerHTML="";
+  let chk=inCheck(turn)?turn:null,kingPos=null;
+  if(chk){let kp=chk==="white"?"K":"k";for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(board[r][c]===kp){kingPos={r,c};break;}}
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    let rr=flipped?7-r:r,cc=flipped?7-c:c;
+    let d=document.createElement("div");
+    d.className="square "+((r+c)%2===0?"sq-l":"sq-d");
+    if(sel&&sel.r===rr&&sel.c===cc)d.classList.add("sq-sel");
+    if(lastMv){if(lastMv.r1===rr&&lastMv.c1===cc)d.classList.add("sq-from");if(lastMv.r2===rr&&lastMv.c2===cc)d.classList.add("sq-to");}
+    if(kingPos&&kingPos.r===rr&&kingPos.c===cc)d.classList.add("sq-chk");
+    if(targets.some(t=>t.r===rr&&t.c===cc)){let dot=document.createElement("div");dot.className="dot"+(board[rr][cc]?" cap":"");d.appendChild(dot);}
+    d.addEventListener("click",()=>tapSquare(rr,cc));
+    d.addEventListener("touchend",e=>{e.preventDefault();tapSquare(rr,cc);},{passive:false});
+    let p=board[rr][cc];
+    if(p){let img=document.createElement("img");img.src=PI[p];if(!W(p))img.classList.add("piece-b");d.appendChild(img);}
+    b.appendChild(d);
+  }
+  const files=flipped?"hgfedcba":"abcdefgh",ranks=flipped?"12345678":"87654321";
+  let fr=document.getElementById("coord-files"),rk=document.getElementById("coord-ranks");
+  fr.innerHTML="";rk.innerHTML="";
+  for(let i=0;i<8;i++){
+    let f=document.createElement("div");f.className="coord";f.innerText=files[i];fr.appendChild(f);
+    let rv=document.createElement("div");rv.className="coord-rank";rv.innerText=ranks[i];rk.appendChild(rv);
+  }
+  let dot=document.getElementById("turn-dot");
+  dot.className="turn-dot "+(turn==="white"?"w":"b");
+  document.getElementById("turn-info").innerText=turn==="white"?"Blancs jouent":"Noirs jouent";
+  document.getElementById("check-msg").innerText=inCheck(turn)?"⚠️ Échec !":"";
+}
+
+function tapSquare(r,c){
+  if(sel){
+    if(targets.some(t=>t.r===r&&t.c===c)){tryMove(sel.r,sel.c,r,c);return;}
+    sel=null;targets=[];
+  }
+  let p=board[r][c];
+  if(!p){draw();return;}
+  if((turn==="white"&&!W(p))||(turn==="black"&&W(p))){draw();return;}
+  if(turn!==myColor){draw();return;}
+  sel={r,c};targets=legalFor(r,c);draw();
+}
+
+function doUndo(){
+  if(!hist.length)return;
+  let prev=hist.pop();
+  board=prev.board;turn=prev.turn;EP=prev.EP;moved=prev.moved;moveLog=prev.log;lastMv=prev.lastMv;
+  sel=null;targets=[];draw();
+}
+function flipBoard(){flipped=!flipped;draw();}
+
+/* ══════════════ CLOCK ══════════════ */
+let clockTimes={white:0,black:0},clockInc=0,clockRunning=false,clockActive="white",clockIv=null;
+function initClock(cadStr){
+  let[t,inc]=cadStr.split("+").map(Number);
+  clockInc=inc||0;
+  clockTimes={white:t,black:t};
+  clockActive="white";
+  updateClock();
+}
+function fmt(s){if(s<=0)return"0:00";return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function updateClock(){
+  let cad=myColor&&document.getElementById("cadence")?document.getElementById("cadence").value:"600+0";
+  let noTimer=cad==="0+0"||!gameStarted;
+  document.getElementById("clk-white-t").textContent=noTimer?"—":fmt(clockTimes.white);
+  document.getElementById("clk-black-t").textContent=noTimer?"—":fmt(clockTimes.black);
+  document.getElementById("clk-white").classList.toggle("ticking",clockActive==="white"&&clockRunning);
+  document.getElementById("clk-black").classList.toggle("ticking",clockActive==="black"&&clockRunning);
+  document.getElementById("clk-white").classList.toggle("low",clockTimes.white>0&&clockTimes.white<30);
+  document.getElementById("clk-black").classList.toggle("low",clockTimes.black>0&&clockTimes.black<30);
+}
+function startClock(){
+  if(clockRunning||clockTimes.white===0)return;
+  clockRunning=true;
+  clockIv=setInterval(()=>{
+    clockTimes[clockActive]--;updateClock();
+    if(clockTimes[clockActive]<=0){
+      clockTimes[clockActive]=0;pauseClock();
+      showEnd("⏱ Temps écoulé !","Les "+(clockActive==="white"?"Blancs":"Noirs")+" ont perdu au temps.");
+    }
+  },1000);
+}
+function pauseClock(){clearInterval(clockIv);clockRunning=false;updateClock();}
+function switchClock(){
+  if(!clockRunning)return;
+  clockTimes[clockActive]+=clockInc;
+  clockActive=clockActive==="white"?"black":"white";
+  updateClock();
+}
+
+/* ══════════════ LOBBY ══════════════ */
+let myColorChoice="white";
+function setColor(c){
+  myColorChoice=c;
+  ["white","black","rand"].forEach(x=>document.getElementById("c-"+x).classList.toggle("active",x===c));
+}
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+/* ══════════════ PEERJS ══════════════ */
+let peer=null,conn=null;
+function genCode(){return String(Math.floor(1000+Math.random()*9000));}
+
+function createGame(){
+  if(typeof Peer==="undefined"){
+    alert("Module réseau non chargé.\nVérifiez votre connexion internet.\nSur iPhone : utilisez Microsoft Edge.");
+    return;
+  }
+  if(peer)peer.destroy();
+  let code=genCode();
+  let st=document.getElementById("create-status");
+  st.textContent="⏳ Connexion au serveur…";st.className="status-line";
+
+  // Config PeerJS avec ICE servers pour WiFi local
+  peer=new Peer("chessFred-"+code, {
+    config: {
+      iceServers:[
+        {urls:"stun:stun.l.google.com:19302"},
+        {urls:"stun:stun1.l.google.com:19302"},
+        {urls:"stun:stun.cloudflare.com:3478"}
+      ]
+    }
+  });
+  peer.on("open",()=>{
+    document.getElementById("code-display").textContent=code;
+    document.getElementById("code-zone").style.display="block";
+    st.textContent="✅ Prêt — partagez le code ci-dessus";
+    st.className="status-line ok";
+  });
+  peer.on("connection",c=>{
+    conn=c;
+    st.textContent="⏳ Adversaire trouvé, connexion…";
+    st.className="status-line";
+    let mc=myColorChoice==="rand"?(Math.random()<.5?"white":"black"):myColorChoice;
+    myColor=mc;
+    setupConn();
+    c.on("open",()=>{
+      let cadence=document.getElementById("cadence").value;
+      c.send({type:"start",color:mc==="white"?"black":"white",cadence});
+      startGameLocal(mc,cadence);
+    });
+  });
+  peer.on("error",e=>{
+    st.textContent="❌ Erreur : "+e.type+(e.type==="network"?" — vérifiez le WiFi":"");
+    st.className="status-line err";
+  });
+}
+
+function copyCode(){
+  let code=document.getElementById("code-display").textContent;
+  navigator.clipboard.writeText(code).then(()=>{
+    document.getElementById("create-status").textContent="✅ Code copié !";
+    setTimeout(()=>document.getElementById("create-status").textContent="En attente de l'adversaire…",2000);
+  });
+}
+
+function joinGame(){
+  if(typeof Peer==="undefined"){alert("PeerJS non chargé — vérifiez votre connexion internet.");return;}
+  let code=document.getElementById("join-code").value.trim();
+  if(code.length!==4){document.getElementById("join-status").textContent="Code à 4 chiffres requis.";document.getElementById("join-status").className="status-line err";return;}
+  if(peer)peer.destroy();
+  let st=document.getElementById("join-status");
+  st.textContent="⏳ Connexion au serveur…";st.className="status-line";
+  peer=new Peer({
+    config:{iceServers:[
+      {urls:"stun:stun.l.google.com:19302"},
+      {urls:"stun:stun1.l.google.com:19302"},
+      {urls:"stun:stun.cloudflare.com:3478"}
+    ]}
+  });
+  peer.on("open",id=>{
+    st.textContent="⏳ Recherche de la partie "+code+"…";
+    conn=peer.connect("chessFred-"+code,{reliable:true});
+    setupConn();
+    conn.on("open",()=>{ st.textContent="⏳ Connecté — en attente du créateur…"; });
+    conn.on("error",e=>{ st.textContent="❌ Erreur : "+e; st.className="status-line err"; });
+    setTimeout(()=>{if(!myColor){st.textContent="❌ Partie introuvable ou code expiré.";st.className="status-line err";}},10000);
+  });
+  peer.on("error",e=>{ st.textContent="❌ Erreur PeerJS : "+e.type; st.className="status-line err"; });
+  peer.on("disconnected",()=>{ if(!myColor){st.textContent="❌ Déconnecté du serveur.";st.className="status-line err";} });
+}
+
+function setupConn(){
+  conn.on("data",data=>{
+    if(data.type==="start"){
+      myColor=data.color;
+      startGameLocal(myColor,data.cadence);
+    }
+    if(data.type==="move"){tryMove(data.r,data.c,data.r2,data.c2,true);}
+    if(data.type==="promo"){
+      if(promoTgt){board[promoTgt.r][promoTgt.c]=data.q;document.getElementById("promo-overlay").style.display="none";turn=turn==="white"?"black":"white";sel=null;targets=[];draw();checkEnd();}
+    }
+    if(data.type==="chat"){addMsg(data.text,"them");}
+    if(data.type==="disconnect"){showEnd("Déconnexion","L'adversaire a quitté la partie.");}
+  });
+  conn.on("close",()=>{if(gameStarted)showEnd("Déconnexion","L'adversaire s'est déconnecté.");});
+}
+
+function sendMove(r,c,r2,c2){if(conn)conn.send({type:"move",r,c,r2,c2});}
+function sendMsg2(obj){if(conn)conn.send(obj);}
+
+function startGameLocal(color,cadence){
+  myColor=color;
+  gameStarted=true;
+  flipped=color==="black";
+  board=initB();turn="white";EP=null;moved={K:0,k:0,R0:0,R7:0,r0:0,r7:0};
+  hist=[];moveLog=[];lastMv=null;sel=null;targets=[];
+  initClock(cadence);
+  showScreen("game");
+  addMsg("Partie démarrée — vous jouez les "+(color==="white"?"Blancs ⬜":"Noirs ⬛"),"sys");
+  draw();updateClock();
+}
+
+/* ══════════════ CHAT ══════════════ */
+function toggleChat(){
+  let area=document.getElementById("chat-area");
+  let btn=document.getElementById("chat-btn");
+  area.classList.toggle("open");
+  btn.classList.toggle("active");
+  if(area.classList.contains("open"))document.getElementById("chat-msgs").scrollTop=99999;
+}
+function addMsg(text,type){
+  let box=document.getElementById("chat-msgs");
+  let d=document.createElement("div");d.className="msg "+type;d.textContent=text;
+  box.appendChild(d);box.scrollTop=99999;
+  if(type==="them"&&!document.getElementById("chat-area").classList.contains("open")){
+    document.getElementById("chat-btn").classList.add("active");
+  }
+}
+function sendMsg(){
+  let inp=document.getElementById("chat-in");
+  let txt=inp.value.trim();if(!txt)return;
+  inp.value="";addMsg(txt,"me");
+  if(conn)conn.send({type:"chat",text:txt});
+}
+function quickMsg(txt){addMsg(txt,"me");if(conn)conn.send({type:"chat",text:txt});}
+
+/* ══════════════ MISC ══════════════ */
+function confirmLeave(){
+  if(confirm("Quitter la partie ?")){
+    if(conn)try{conn.send({type:"disconnect"});}catch(e){}
+    if(peer){peer.destroy();peer=null;}
+    conn=null;gameStarted=false;myColor=null;
+    backToLobby();
+  }
+}
+function backToLobby(){
+  pauseClock();
+  document.getElementById("end-overlay").style.display="none";
+  document.getElementById("code-zone").style.display="none";
+  document.getElementById("create-status").textContent="";
+  document.getElementById("join-status").textContent="";
+  document.getElementById("join-code").value="";
+  document.getElementById("chat-msgs").innerHTML="";
+  document.getElementById("chat-area").classList.remove("open");
+  gameStarted=false;myColor=null;
+  showScreen("lobby");
+}
+window.addEventListener("resize",draw);
+
+// ── Init : détection navigateur + chargement PeerJS ──
+function loadPeerJS(cdns,idx,cb){
+  if(idx>=cdns.length){cb(false);return;}
+  let s=document.createElement("script");
+  s.src=cdns[idx];
+  s.onload=()=>{ if(typeof Peer!=="undefined"){cb(true);}else{loadPeerJS(cdns,idx+1,cb);} };
+  s.onerror=()=>loadPeerJS(cdns,idx+1,cb);
+  document.head.appendChild(s);
+}
+
+window.addEventListener("DOMContentLoaded",()=>{
+  // Charger PeerJS
+  loadPeerJS([
+    "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+    "https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js",
+    "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"
+  ], 0, ok=>{
+    let ok_el=document.getElementById("peerjs-ok");
+    let err_el=document.getElementById("peerjs-err");
+    if(ok){ if(ok_el) ok_el.style.display="block"; }
+    else  { if(err_el) err_el.style.display="block"; }
+  });
+});
+</script>
+</body>
+</html>
